@@ -6,11 +6,12 @@
    و علامت‌گذاری ارزهایی که در تبدیل (Tabdeal) هم لیست هستند.
 ۲) DEX: اسکن استخرهای ترند GeckoTerminal با فیلترهای ایمنی (نقدینگی، سن، هانی‌پات).
 
-سیگنال‌ها از طریق تلگرام فرستاده می‌شوند. این‌ها پیشنهاد خرید نیستند.
+سیگنال‌ها از طریق تلگرام و بله فرستاده می‌شوند. این‌ها پیشنهاد خرید نیستند.
 """
 import html
 import json
 import os
+import re
 import sys
 import time
 from datetime import datetime, timezone
@@ -20,7 +21,10 @@ import requests
 # ---------------------------------------------------------------- تنظیمات
 TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
+BALE_TOKEN = os.environ.get("BALE_BOT_TOKEN", "")
+BALE_CHAT_ID = os.environ.get("BALE_CHAT_ID", "")
 TEST_MESSAGE = os.environ.get("TEST_MESSAGE", "0") == "1"
+BALE_DISCOVER = os.environ.get("BALE_DISCOVER", "0") == "1"
 STATE_FILE = "state.json"
 
 COOLDOWN_HOURS = 12
@@ -59,6 +63,15 @@ GOPLUS_CHAINS = {"eth": "1", "bsc": "56", "base": "8453", "polygon_pos": "137",
 UA = {"User-Agent": "signal-bot/1.0"}
 
 
+def redact(msg):
+    """توکن‌ها هیچ‌وقت تو لاگ چاپ نشن."""
+    msg = str(msg)
+    for secret in (TOKEN, BALE_TOKEN):
+        if secret:
+            msg = msg.replace(secret, "***")
+    return msg
+
+
 # ---------------------------------------------------------------- ابزارها
 def http_get(url, params=None, headers=None, timeout=20):
     try:
@@ -66,7 +79,7 @@ def http_get(url, params=None, headers=None, timeout=20):
         r.raise_for_status()
         return r.json()
     except Exception as e:  # noqa: BLE001
-        print(f"[warn] {url} -> {e}", file=sys.stderr)
+        print(redact(f"[warn] {url} -> {e}"), file=sys.stderr)
         return None
 
 
@@ -116,10 +129,14 @@ def save_state(state):
         json.dump(state, f)
 
 
-def send(text):
+def strip_html(t):
+    return html.unescape(re.sub(r"<[^>]+>", "", t))
+
+
+def send_telegram(text):
+    """True/False = موفق/ناموفق، None = تنظیم نشده."""
     if not (TOKEN and CHAT_ID):
-        print("[dry-run]\n" + text + "\n")
-        return True
+        return None
     try:
         r = requests.post(
             f"https://api.telegram.org/bot{TOKEN}/sendMessage",
@@ -132,12 +149,43 @@ def send(text):
             return False
         return True
     except Exception as e:  # noqa: BLE001
-        print(f"[warn] telegram -> {e}", file=sys.stderr)
+        print(redact(f"[warn] telegram -> {e}"), file=sys.stderr)
         return False
+
+
+def send_bale(text):
+    """ارسال از طریق پیام‌رسان بله (متن ساده). None = تنظیم نشده."""
+    if not (BALE_TOKEN and BALE_CHAT_ID):
+        return None
+    chat = int(BALE_CHAT_ID) if BALE_CHAT_ID.lstrip("-").isdigit() else BALE_CHAT_ID
+    try:
+        r = requests.post(
+            f"https://tapi.bale.ai/bot{BALE_TOKEN}/sendMessage",
+            json={"chat_id": chat, "text": strip_html(text)[:4000]},
+            timeout=20,
+        )
+        if r.status_code != 200:
+            print(f"[warn] bale {r.status_code}: {r.text[:200]}", file=sys.stderr)
+            return False
+        return True
+    except Exception as e:  # noqa: BLE001
+        print(redact(f"[warn] bale -> {e}"), file=sys.stderr)
+        return False
+
+
+def send(text):
+    """به همه‌ی کانال‌های تنظیم‌شده می‌فرسته؛ اگه حداقل یکی رسید، موفقه."""
+    results = [send_telegram(text), send_bale(text)]
+    configured = [r for r in results if r is not None]
+    if not configured:
+        print("[dry-run]\n" + text + "\n")
+        return True
+    return any(configured)
 
 
 # ---------------------------------------------------------------- CEX
 def tabdeal_coins():
+    """مجموعه‌ی ارزهای قابل معامله در تبدیل؛ اگه API جواب نداد None برمی‌گردونه."""
     for url in TABDEAL_INFO_URLS:
         data = http_get(url)
         if data and isinstance(data.get("symbols"), list):
@@ -147,6 +195,7 @@ def tabdeal_coins():
 
 
 def check_breakout(klines):
+    """شکست سقف ۲۴ کندل قبل با جهش حجم. فقط کندل‌های بسته‌شده."""
     k = klines[:-1]
     if len(k) < 50:
         return None
@@ -233,6 +282,7 @@ def cex_message(s):
 
 # ---------------------------------------------------------------- DEX
 def goplus_check(net, addr):
+    """True = سالم به‌نظر می‌رسه، False = رد، None = بررسی نشد."""
     cid = GOPLUS_CHAINS.get(net)
     if not cid:
         return None
@@ -264,6 +314,7 @@ def pool_age_hours(created):
 
 
 def check_dex_pool(a):
+    """a = attributes استخر. در صورت قبولی دیکشنری سیگنال، وگرنه None."""
     try:
         liq = float(a.get("reserve_in_usd") or 0)
         vol24 = float((a.get("volume_usd") or {}).get("h24") or 0)
@@ -338,9 +389,42 @@ def dex_message(s):
 
 
 # ---------------------------------------------------------------- اجرا
+def bale_discover():
+    """شماره‌ی چت‌هایی که به ربات بله پیام داده‌ان رو چاپ می‌کنه."""
+    if not BALE_TOKEN:
+        print("BALE_BOT_TOKEN تنظیم نشده.")
+        return 1
+    try:
+        r = requests.get(f"https://tapi.bale.ai/bot{BALE_TOKEN}/getUpdates", timeout=20)
+    except Exception as e:  # noqa: BLE001
+        print(redact(f"خطا در اتصال به بله: {e}"))
+        return 1
+    print(f"وضعیت پاسخ بله: {r.status_code}")
+    if r.status_code != 200:
+        print("بله جواب درست نداد (توکن اشتباه است یا دسترسی از خارج بسته است).")
+        return 1
+    found = {}
+    try:
+        for u in r.json().get("result", []):
+            chat = (u.get("message") or {}).get("chat") or {}
+            if "id" in chat:
+                found[chat["id"]] = (u["message"].get("from") or {}).get("first_name", "")
+    except Exception as e:  # noqa: BLE001
+        print(redact(f"پاسخ نامعتبر: {e}"))
+        return 1
+    if not found:
+        print("هیچ پیامی پیدا نشد. اول تو بله به ربات خودت یه پیام بده، بعد دوباره اجرا کن.")
+        return 1
+    for cid, name in found.items():
+        print(f"BALE_CHAT_ID = {cid}   (نام: {name})")
+    return 0
+
+
 def main():
+    if BALE_DISCOVER:
+        sys.exit(bale_discover())
     if TEST_MESSAGE:
-        ok = send("✅ ربات سیگنال فعاله و اتصال تلگرام درسته.")
+        ok = send("✅ ربات سیگنال فعاله و اتصال پیام‌رسان درسته.")
         sys.exit(0 if ok else 1)
 
     now = time.time()
