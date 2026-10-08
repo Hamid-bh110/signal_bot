@@ -9,6 +9,10 @@ on:
         description: "Send a test message to Telegram"
         type: boolean
         default: false
+      bale_discover:
+        description: "Find my Bale chat id"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -42,7 +46,10 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          BALE_BOT_TOKEN: ${{ secrets.BALE_BOT_TOKEN }}
+          BALE_CHAT_ID: ${{ secrets.BALE_CHAT_ID }}
           TEST_MESSAGE: ${{ inputs.test && '1' || '0' }}
+          BALE_DISCOVER: ${{ inputs.bale_discover && '1' || '0' }}
         run: python signal_bot.py
 
       - name: Save state
