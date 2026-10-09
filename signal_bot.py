@@ -188,12 +188,22 @@ def send(text):
 
 # ---------------------------------------------------------------- CEX
 def tabdeal_coins():
-    """مجموعه‌ی ارزهای قابل معامله در تبدیل؛ اگه API جواب نداد None برمی‌گردونه."""
+    """مجموعه‌ی ارزهای قابل معامله در تبدیل؛ اگه API جواب نداد None برمی‌گردونه.
+    پاسخ ممکنه dict با کلید symbols یا خود یک لیست باشه؛ هر دو رو پشتیبانی می‌کنیم."""
     for url in TABDEAL_INFO_URLS:
         data = http_get(url)
-        if data and isinstance(data.get("symbols"), list):
-            return {s["baseAsset"].upper() for s in data["symbols"]
-                    if s.get("status") == "TRADING" and s.get("baseAsset")}
+        if isinstance(data, dict):
+            data = data.get("symbols")
+        if not isinstance(data, list):
+            continue
+        coins = set()
+        for s in data:
+            if not isinstance(s, dict) or not s.get("baseAsset"):
+                continue
+            if s.get("status") in (None, "TRADING", "trading", 1, "1", True):
+                coins.add(str(s["baseAsset"]).upper())
+        if coins:
+            return coins
     return None
 
 
@@ -239,7 +249,11 @@ def cex_scan():
     tickers = http_get(f"{BINANCE}/api/v3/ticker/24hr")
     if not tickers:
         return out
-    tabdeal = tabdeal_coins()
+    try:
+        tabdeal = tabdeal_coins()
+    except Exception as e:  # noqa: BLE001
+        print(redact(f"[warn] tabdeal: {e}"), file=sys.stderr)
+        tabdeal = None
     cands = []
     for t in tickers:
         sym = t.get("symbol", "")
