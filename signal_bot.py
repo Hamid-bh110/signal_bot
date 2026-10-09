@@ -40,6 +40,7 @@ CEX_RSI_RANGE = (55, 82)
 STABLES = {"USDC", "FDUSD", "TUSD", "USDP", "DAI", "USDE", "EUR", "EURI", "AEUR",
            "PAXG", "XUSD", "BFUSD", "USD1", "RLUSD"}
 LEVERAGED_SUFFIXES = ("UP", "DOWN", "BULL", "BEAR")
+LEVERAGED_RE = re.compile(r"\d+[SL]$")   # توکن‌های اهرمی مثل 3S, 5L (کبرین/تبدیل)
 MAJORS_EXCLUDED = {"BTC", "ETH", "BNB"}   # طبق خواسته: ارزهای کم‌نوسان
 
 TABDEAL_INFO_URLS = [
@@ -260,7 +261,8 @@ def cex_scan():
         if not sym.endswith("USDT"):
             continue
         base = sym[:-4]
-        if base in STABLES or base in MAJORS_EXCLUDED or base.endswith(LEVERAGED_SUFFIXES):
+        if (base in STABLES or base in MAJORS_EXCLUDED or base.endswith(LEVERAGED_SUFFIXES)
+                or LEVERAGED_RE.search(base)):
             continue
         try:
             qv = float(t["quoteVolume"])
