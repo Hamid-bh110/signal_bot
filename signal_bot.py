@@ -27,20 +27,20 @@ TEST_MESSAGE = os.environ.get("TEST_MESSAGE", "0") == "1"
 BALE_DISCOVER = os.environ.get("BALE_DISCOVER", "0") == "1"
 STATE_FILE = "state.json"
 
-COOLDOWN_HOURS = 12
+COOLDOWN_HOURS = 12          # جلوگیری از تکرار سیگنال یک ارز
 MAX_SIGNALS_PER_RUN = 8
 
 # CEX
 BINANCE = "https://data-api.binance.vision"
-CEX_MIN_QUOTE_VOLUME = 3_000_000
-CEX_TOP_N = 120
-CEX_MIN_ATR_PCT = 1.0
-CEX_VOLUME_RATIO = 2.5
+CEX_MIN_QUOTE_VOLUME = 3_000_000   # حداقل حجم ۲۴ ساعته (دلار)
+CEX_TOP_N = 120                    # تعداد کاندیدا برای بررسی کندل
+CEX_MIN_ATR_PCT = 1.0              # ارزهای کم‌نوسان (مثل BTC/ETH) رد می‌شن
+CEX_VOLUME_RATIO = 2.5             # حجم کندل آخر نسبت به میانگین ۲۴ کندل قبل
 CEX_RSI_RANGE = (55, 82)
 STABLES = {"USDC", "FDUSD", "TUSD", "USDP", "DAI", "USDE", "EUR", "EURI", "AEUR",
            "PAXG", "XUSD", "BFUSD", "USD1", "RLUSD"}
 LEVERAGED_SUFFIXES = ("UP", "DOWN", "BULL", "BEAR")
-MAJORS_EXCLUDED = {"BTC", "ETH", "BNB"}
+MAJORS_EXCLUDED = {"BTC", "ETH", "BNB"}   # طبق خواسته: ارزهای کم‌نوسان
 
 TABDEAL_INFO_URLS = [
     "https://api1.tabdeal.org/r/api/v1/exchangeInfo",
@@ -53,14 +53,17 @@ GT_HEADERS = {"Accept": "application/json;version=20230302"}
 DEX_MIN_LIQUIDITY = 150_000
 DEX_MIN_VOLUME_24H = 300_000
 DEX_MIN_AGE_HOURS = 48
-DEX_H1_RANGE = (4, 40)
-DEX_MAX_H24 = 250
+DEX_H1_RANGE = (4, 40)            # درصد تغییر ۱ ساعت اخیر
+DEX_MAX_H24 = 250                 # اگه قبلاً منفجر شده، دیر شده
 DEX_MIN_BUY_SELL_RATIO = 1.3
 DEX_MIN_BUYERS_H1 = 30
 GOPLUS_CHAINS = {"eth": "1", "bsc": "56", "base": "8453", "polygon_pos": "137",
                  "arbitrum": "42161", "avax": "43114", "optimism": "10"}
 
 UA = {"User-Agent": "signal-bot/1.0"}
+STATUS_EVERY_HOURS = 6
+STATS = {"cex_universe": 0, "cex_checked": 0, "cex_near": 0,
+         "dex_checked": 0, "dex_passed": 0, "dex_unsafe": 0}
 
 
 def redact(msg):
@@ -196,14 +199,14 @@ def tabdeal_coins():
 
 def check_breakout(klines):
     """شکست سقف ۲۴ کندل قبل با جهش حجم. فقط کندل‌های بسته‌شده."""
-    k = klines[:-1]
+    k = klines[:-1]  # کندل آخر هنوز در حال شکل‌گیریه
     if len(k) < 50:
         return None
     o = [float(x[1]) for x in k]
     h = [float(x[2]) for x in k]
     l = [float(x[3]) for x in k]
     c = [float(x[4]) for x in k]
-    v = [float(x[7]) for x in k]
+    v = [float(x[7]) for x in k]  # حجم به دلار
     last = c[-1]
     prior_high = max(h[-25:-1])
     avg_vol = sum(v[-25:-1]) / 24
@@ -214,6 +217,9 @@ def check_breakout(klines):
     a = atr(h, l, c)
     if r is None or a is None:
         return None
+    STATS["cex_checked"] += 1
+    if last >= prior_high * 0.99 and vol_ratio >= 1.5:
+        STATS["cex_near"] += 1
     atr_pct = a / last * 100
     if atr_pct < CEX_MIN_ATR_PCT:
         return None
@@ -249,9 +255,10 @@ def cex_scan():
         if qv < CEX_MIN_QUOTE_VOLUME:
             continue
         if tabdeal is not None and base not in tabdeal:
-            continue
+            continue  # فقط ارزهایی که تو تبدیل می‌شه خرید
         cands.append((qv, sym, base))
     cands.sort(reverse=True)
+    STATS["cex_universe"] = len(cands)
     for _, sym, base in cands[:CEX_TOP_N]:
         kl = http_get(f"{BINANCE}/api/v3/klines", params={"symbol": sym, "interval": "1h", "limit": 100})
         if not kl:
@@ -351,17 +358,20 @@ def dex_scan():
             if not pool or pool in seen:
                 continue
             seen.add(pool)
+            STATS["dex_checked"] += 1
             sig = check_dex_pool(a)
             if not sig:
                 continue
             try:
-                tid = p["relationships"]["base_token"]["data"]["id"]
+                tid = p["relationships"]["base_token"]["data"]["id"]  # مثل eth_0x...
                 net, addr = tid.split("_", 1)
             except Exception:  # noqa: BLE001
                 continue
             safe = goplus_check(net, addr)
             if safe is False:
+                STATS["dex_unsafe"] += 1
                 continue
+            STATS["dex_passed"] += 1
             sig.update(name=a.get("name", "?"), net=net, pool=pool, addr=addr, safe=safe)
             out.append((f"dex:{pool}", dex_message(sig)))
         time.sleep(1)
@@ -420,6 +430,19 @@ def bale_discover():
     return 0
 
 
+def status_message(now_utc):
+    s_ = STATS
+    return (
+        "📊 <b>گزارش وضعیت ربات</b>\n"
+        f"زمان: {now_utc}\n\n"
+        f"CEX: {s_['cex_universe']} ارز کاندید (تبدیل + حجم کافی)\n"
+        f"  بررسی‌شده: {s_['cex_checked']} | نزدیک شرط: {s_['cex_near']}\n\n"
+        f"DEX: {s_['dex_checked']} استخر بررسی شد\n"
+        f"  از فیلتر نقدینگی/حجم/سن رد شد؛ قبول: {s_['dex_passed']} | ناامن: {s_['dex_unsafe']}\n\n"
+        "اگه عدد بررسی‌شده صفره، یعنی ربات به API ها وصل نشده. اگه بالا باشه ولی سیگنال نیست، یعنی بازار الان شرط‌ها رو نداره."
+    )
+
+
 def main():
     if BALE_DISCOVER:
         sys.exit(bale_discover())
@@ -428,7 +451,8 @@ def main():
         sys.exit(0 if ok else 1)
 
     now = time.time()
-    state = {k: t for k, t in load_state().items() if now - t < 48 * 3600}
+    state = {k: t for k, t in load_state().items()
+             if k == "status_sent" or now - t < 48 * 3600}
 
     signals = []
     for scan in (cex_scan, dex_scan):
@@ -437,6 +461,10 @@ def main():
         except Exception as e:  # noqa: BLE001
             print(f"[error] {scan.__name__}: {e}", file=sys.stderr)
 
+    if now - state.get("status_sent", 0) >= STATUS_EVERY_HOURS * 3600:
+        when = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        if send(status_message(when)):
+            state["status_sent"] = now
     fresh = [(k, t) for k, t in signals if now - state.get(k, 0) >= COOLDOWN_HOURS * 3600]
     print(f"signals found: {len(signals)}, new: {len(fresh)}")
     for key, text in fresh[:MAX_SIGNALS_PER_RUN]:
