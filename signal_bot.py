@@ -304,19 +304,26 @@ def cex_message(s):
 
 # ---------------------------------------------------------------- DEX
 def goplus_check(net, addr):
-    """True = سالم به‌نظر می‌رسه، False = رد، None = بررسی نشد."""
+    """True = سالم به‌نظر می‌رسه، False = رد (شامل نبود داده)."""
     cid = GOPLUS_CHAINS.get(net)
     if not cid:
-        return None
+        return False
     d = http_get(f"https://api.gopluslabs.io/api/v1/token_security/{cid}",
                  params={"contract_addresses": addr})
     try:
         info = d["result"][addr.lower()]
     except Exception:  # noqa: BLE001
-        return None
+        return False
+    if not info:
+        return False
     if info.get("is_honeypot") == "1":
         return False
     if info.get("is_open_source") == "0":
+        return False
+    if info.get("is_mintable") == "1" or info.get("can_take_back_ownership") == "1":
+        return False
+    lp = info.get("lp_holders") or []
+    if not any(str(h.get("is_locked")) == "1" for h in lp):
         return False
     for key in ("buy_tax", "sell_tax"):
         try:
