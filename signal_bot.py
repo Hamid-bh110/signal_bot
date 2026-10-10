@@ -1,4 +1,4 @@
-if qv < CEX_MIN_QUOTE_VOLUME:#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 ربات سیگنال (فقط اطلاع‌رسانی، بدون معامله خودکار)
 
@@ -266,9 +266,9 @@ def cex_scan():
             qv = float(t["quoteVolume"])
         except (KeyError, ValueError):
             continue
-        if qv < CEX_MIN_QUOTE_VOLUME or float(t.get("priceChangePercent", 0) or 0) < 20:
+        if qv < CEX_MIN_QUOTE_VOLUME or float(t.get("priceChangePercent", 0) or 0) < 20:          
             # فقط ارزهای پرتحرک (رشد ۲۴ ساعته ≥ ۲۰٪)
-            
+            continue
         if tabdeal is not None and base not in tabdeal:
             continue  # فقط ارزهایی که تو تبدیل می‌شه خرید
         cands.append((qv, sym, base))
