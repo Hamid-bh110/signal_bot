@@ -55,8 +55,8 @@ DEX_MIN_VOLUME_24H = 300_000
 DEX_MIN_AGE_HOURS = 48
 DEX_H1_RANGE = (4, 40)            # درصد تغییر ۱ ساعت اخیر
 DEX_MAX_H24 = 250                 # اگه قبلاً منفجر شده، دیر شده
-DEX_MIN_BUY_SELL_RATIO = 1.3
-DEX_MIN_BUYERS_H1 = 30
+DEX_MIN_BUY_SELL_RATIO = 1.15
+DEX_MIN_BUYERS_H1 = 20
 GOPLUS_CHAINS = {"eth": "1", "bsc": "56", "base": "8453", "polygon_pos": "137",
                  "arbitrum": "42161", "avax": "43114", "optimism": "10"}
 
