@@ -1,6 +1,8 @@
 name: Tabdeal Gainers
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "0 */2 * * *"
 jobs:
   gainers:
     runs-on: ubuntu-latest
