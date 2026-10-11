@@ -59,7 +59,8 @@ def main():
     for base, src, sym in [(x[:-4], "BN", x) if isinstance(x, str) else (x if len(x) == 3 else (x[0], "BN", x[1])) for x in uni]:
         try:
             rows = m.fetch_bn(sym) if src == "BN" else m.fetch_kc(sym)
-        except Exception:  # noqa: BLE001
+        except Exception as e:  # noqa: BLE001
+            print(f"[error] {sym}: {e}")
             rows = []
         if len(rows) < 300:
             continue
