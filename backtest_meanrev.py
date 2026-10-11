@@ -56,7 +56,8 @@ def main():
     uni = m.universe()
     trades = []
     used = 0
-    for base, src, sym in uni:
+    for base, sym in uni:
+        src = "BN"
         try:
             rows = m.fetch_bn(sym) if src == "BN" else m.fetch_kc(sym)
         except Exception:  # noqa: BLE001
