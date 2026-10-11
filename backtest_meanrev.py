@@ -2,7 +2,6 @@
 """
 بک‌تست نوسان‌گیری (برگشت از کف): ورود وقتی RSI زیر ۳۰ بوده و کندل بعدی سبز شده.
 حد ضرر: ۱.۵×ATR زیر ورود. هدف: ۱.۵×ریسک. حداکثر نگه‌داری ۲۴ کندل. کارمزد ۰.۱٪ هر طرف.
-universe و داده از backtest_multi (بایننس/کوکوین) و آمار از backtest_live.
 """
 import backtest_live as bt
 import backtest_multi as m
