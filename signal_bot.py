@@ -32,7 +32,8 @@ MAX_SIGNALS_PER_RUN = 8
 
 # CEX
 BINANCE = "https://data-api.binance.vision"
-CEX_MIN_QUOTE_VOLUME = 3_000_000   # حداقل حجم ۲۴ ساعته (دلار) CEX_SIGNALS_ENABLED = False
+CEX_MIN_QUOTE_VOLUME = 3_000_000
+CEX_SIGNALS_ENABLED = False
 CEX_TOP_N = 120                    # تعداد کاندیدا برای بررسی کندل
 CEX_MIN_ATR_PCT = 1.0              # ارزهای کم‌نوسان (مثل BTC/ETH) رد می‌شن
 CEX_VOLUME_RATIO = 2.5             # حجم کندل آخر نسبت به میانگین ۲۴ کندل قبل
