@@ -35,7 +35,7 @@ def read_trend(src, sym):
     if r is None or a is None:
         return None
     if not 35 <= r <= 60:
-        return None  # نوسان‌گیری: RSI در عقب‌نشینی
+        return None  
     avg_v = sum(v[j - 24:j]) / 24 if j >= 24 else 0
     vr = v[j] / avg_v if avg_v > 0 else 0
     entry = c[j]
