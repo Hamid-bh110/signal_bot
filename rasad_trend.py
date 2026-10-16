@@ -28,8 +28,8 @@ def read_trend(src, sym):
     if not e20[j] > e50[j]:
         return None  # فقط روند صعودی
     dist20 = (c[j] / e20[j] - 1) * 100
-    if dist20 < -1 or dist20 > 8:
-        return None  # یا زیر EMA20 است، یا خیلی از آن دور شده
+    if dist20 < -3 or dist20 > 3:
+        return None  # نوسان‌گیری: فقط وقتی قیمت به EMA20 نزدیک شده
     r = sb.rsi(c[:j + 1])
     a = sb.atr(h[:j + 1], l[:j + 1], c[:j + 1])
     if r is None or a is None:
