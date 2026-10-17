@@ -1,6 +1,16 @@
 {
   "equity": 985.9935128631687,
-  "open": {},
+  "open": {
+    "EPICUSDT": {
+      "entry": 0.2878,
+      "stop": 0.2174642,
+      "target": 0.4988074,
+      "units": 140.18373472160246,
+      "entry_ms": 1792216800000,
+      "bars": 0,
+      "opened_str": "2026-10-17 06:49 UTC"
+    }
+  },
   "closed": [
     {
       "sym": "SUSDT",
