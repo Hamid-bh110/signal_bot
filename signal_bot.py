@@ -267,7 +267,7 @@ def cex_scan():
             qv = float(t["quoteVolume"])
         except (KeyError, ValueError):
             continue
-        if qv < CEX_MIN_QUOTE_VOLUME or float(t.get("priceChangePercent", 0) or 0) < 20:          
+        if qv < CEX_MIN_QUOTE_VOLUME or float(t.get("priceChangePercent", 0) or 0) < 10:          
             # فقط ارزهای پرتحرک (رشد ۲۴ ساعته ≥ ۲۰٪)
             continue
         if tabdeal is not None and base not in tabdeal:
