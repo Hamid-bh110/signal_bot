@@ -1,6 +1,16 @@
 {
   "equity": 994.6128032244251,
-  "open": {},
+  "open": {
+    "ANIMEUSDT": {
+      "entry": 0.00415,
+      "stop": 0.00317364,
+      "target": 0.00707908,
+      "units": 10186.947470445586,
+      "entry_ms": 1792879200000,
+      "bars": 0,
+      "opened_str": "2026-10-24 22:23 UTC"
+    }
+  },
   "closed": [
     {
       "sym": "SUSDT",
