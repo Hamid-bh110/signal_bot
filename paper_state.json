@@ -1,6 +1,16 @@
 {
   "equity": 966.5261786124443,
-  "open": {},
+  "open": {
+    "INITUSDT": {
+      "entry": 0.16943,
+      "stop": 0.12553842,
+      "target": 0.30110474,
+      "units": 220.20765226780276,
+      "entry_ms": 1794254400000,
+      "bars": 0,
+      "opened_str": "2026-11-09 20:37 UTC"
+    }
+  },
   "closed": [
     {
       "sym": "SUSDT",
